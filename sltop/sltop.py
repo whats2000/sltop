@@ -21,6 +21,7 @@ Requirements: textual>=0.50  (pip install "textual>=0.50")
 from __future__ import annotations
 
 import argparse
+import getpass
 import math
 import os
 import subprocess
@@ -795,6 +796,12 @@ _CONFIG_ERROR_REASONS: frozenset[str] = frozenset(
     }
 )
 
+_NODE_UNAVAIL_REASONS: frozenset[str] = frozenset(
+    {
+        "ReqNodeNotAvail",
+    }
+)
+
 
 def _parse_job_gpu(gres: str) -> int:
     """Parse requested GPUs from squeue %b field, e.g. 'gpu:8' → 8."""
@@ -1059,6 +1066,8 @@ class SlurmMonitor(App):
         # Queue sort state: column key (None = no sort), and reverse flag
         self._sort_col: Optional[str] = None
         self._sort_rev: bool = False
+        # Store current user for highlighting in queue view
+        self.current_user = getpass.getuser()
 
     # Column key → dict field mapping (same order as add_columns below)
     _COL_KEYS = [
@@ -1247,6 +1256,7 @@ class SlurmMonitor(App):
             translated = _translate_reason(row["reason"], rule, job=row)
 
             # Config-error PENDING jobs: show INCORRECT_CONFIG + reason in red
+            # Node-unavail PENDING jobs: show NODE_UNAVAILABLE + reason in orange
             raw_reason = row["reason"].strip()
             # Strip parens that squeue adds: "(QOSMinGRES)" → "QOSMinGRES"
             if raw_reason.startswith("(") and raw_reason.endswith(")"):
@@ -1255,9 +1265,15 @@ class SlurmMonitor(App):
             is_config_error = (
                 state == "PENDING" and base_reason in _CONFIG_ERROR_REASONS
             )
+            is_node_unavail = (
+                state == "PENDING" and base_reason in _NODE_UNAVAIL_REASONS
+            )
             if is_config_error:
                 display_state = "[bold #dd2222]INCORRECT_CONFIG[/]"
                 display_reason = f"[bold #dd2222]{translated}[/]"
+            elif is_node_unavail:
+                display_state = "[bold #44dddd]NODE_UNAVAILABLE[/]"
+                display_reason = f"[bold #44dddd]{translated}[/]"
             else:
                 display_state = f"[{self._STATE_COLOR.get(state, 'white')}]{state}[/]"
                 display_reason = translated
@@ -1267,10 +1283,15 @@ class SlurmMonitor(App):
             if len(name) > 22:
                 name = name[:21] + "…"
 
+            # Highlight current user in queue view
+            user_display = row["user"]
+            if row["user"] == self.current_user:
+                user_display = f"[bold #ffff00 on #333333]{user_display}[/]"
+
             tbl.add_row(
                 row["jobid"],
                 f"[bold {_partition_color(row['partition'])}]{row['partition']}[/]",
-                row["user"],
+                user_display,
                 name,
                 display_state,
                 row["elapsed"],
