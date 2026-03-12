@@ -1182,7 +1182,7 @@ class SlurmMonitor(App):
 
         try:
             self.query_one("#resources-content", Static).update(
-                Group(*cards) if cards else "No partition data."
+                Group(summary, *cards) if cards else Group(summary)
             )
         except NoMatches:
             pass
