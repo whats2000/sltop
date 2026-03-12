@@ -1,0 +1,51 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sltop"
+version = "0.1.0"
+description = "nvtop-inspired interactive SLURM cluster dashboard"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "whats2000" }]
+keywords = ["slurm", "hpc", "monitor", "cluster", "textual", "tui", "dashboard"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Monitoring",
+    "Topic :: System :: Distributed Computing",
+]
+requires-python = ">=3.8"
+dependencies = ["textual>=0.50"]
+
+[project.urls]
+Homepage = "https://github.com/whats2000/sltop"
+Repository = "https://github.com/whats2000/sltop"
+Issues = "https://github.com/whats2000/sltop/issues"
+Changelog = "https://github.com/whats2000/sltop/blob/main/CHANGELOG.md"
+
+[project.scripts]
+sltop = "sltop.sltop:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["sltop"]
+
+# Ensure the source distribution includes all project files
+[tool.hatch.build.targets.sdist]
+include = [
+    "sltop/",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+]

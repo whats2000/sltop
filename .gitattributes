@@ -1,0 +1,14 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Shell scripts must always use LF — never CRLF — or bash on Linux will break
+*.sh text eol=lf
+
+# Python source
+*.py text eol=lf
+
+# YAML / TOML / Markdown — keep LF
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.md text eol=lf

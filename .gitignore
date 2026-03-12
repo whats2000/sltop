@@ -1,0 +1,27 @@
+# generated files
+target/
+generated/
+
+# dependencies
+Dependencies.toml
+
+# config files
+Config.toml
+#!**/tests/Config.toml
+
+# Python packaging artifacts
+dist/
+build/
+*.egg-info/
+__pycache__/
+*.py[cod]
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Editor / OS
+.DS_Store
+*.swp
