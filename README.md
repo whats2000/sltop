@@ -12,9 +12,11 @@ Monitor partitions, scheduling rules, the full job queue, and your own running/p
 
 ![sltop screenshot](https://raw.githubusercontent.com/whats2000/sltop/refs/heads/main/images/sltop.png)
 
+![sltop screenshot rules](https://raw.githubusercontent.com/whats2000/sltop/refs/heads/main/images/sltop-rules.png)
+
 ![sltop screenshot queue](https://raw.githubusercontent.com/whats2000/sltop/refs/heads/main/images/sltop-queue.png)
 
-![sltop screenshot rules](https://raw.githubusercontent.com/whats2000/sltop/refs/heads/main/images/sltop-rules.png)
+![sltop screenshot my jobs](https://raw.githubusercontent.com/whats2000/sltop/refs/heads/main/images/sltop-my-jobs.png)
 
 </div>
 
