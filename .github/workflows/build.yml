@@ -1,0 +1,45 @@
+name: Build Wheel
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main", "master"]
+
+jobs:
+  build:
+    name: Build & upload wheel
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Build sdist and wheel
+        run: uv build
+
+      - name: Upload wheel
+        uses: actions/upload-artifact@v4
+        with:
+          name: sltop-wheel
+          path: dist/*.whl
+          retention-days: 30
+
+      - name: Upload sdist
+        uses: actions/upload-artifact@v4
+        with:
+          name: sltop-sdist
+          path: dist/*.tar.gz
+          retention-days: 30
+
+      - name: Print install instruction
+        run: |
+          WHL=$(ls dist/*.whl)
+          echo "### Install instructions" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Download the \`sltop-wheel\` artifact, then run:" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "pip install $(basename $WHL)" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY

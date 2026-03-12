@@ -1,0 +1,84 @@
+name: Publish to PyPI
+
+on:
+  push:
+    tags:
+      - "v*.*.*" # trigger on version tags, e.g. v0.1.0
+  workflow_dispatch: # allow manual runs from the Actions tab
+
+permissions:
+  contents: read
+  id-token: write # required for PyPI Trusted Publisher (OIDC)
+
+jobs:
+  # ────────────────────────────────────────────────────────────────────────────
+  # 1. Validate the package can be built
+  # ────────────────────────────────────────────────────────────────────────────
+  validate:
+    name: Validate package build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Build sdist and wheel
+        run: uv build
+
+      - name: Check distribution metadata
+        run: uvx twine check dist/*
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # 2. Publish to TestPyPI on every tag push (smoke-test before real release)
+  # ────────────────────────────────────────────────────────────────────────────
+  publish-testpypi:
+    name: Publish → TestPyPI
+    needs: validate
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/sltop
+
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true # idempotent re-runs
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # 3. Publish to PyPI (production) — only on real version tags
+  # ────────────────────────────────────────────────────────────────────────────
+  publish-pypi:
+    name: Publish → PyPI
+    needs: publish-testpypi
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    environment:
+      name: pypi
+      url: https://pypi.org/p/sltop
+
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

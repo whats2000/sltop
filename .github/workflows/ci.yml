@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+    branches: ["main", "master"]
+
+jobs:
+  lint:
+    name: Lint & build check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Lint with ruff
+        run: uvx ruff check sltop/
+
+      - name: Build package
+        run: uv build
+
+      - name: Check distribution metadata
+        run: uvx twine check dist/*
