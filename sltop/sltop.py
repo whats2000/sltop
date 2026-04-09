@@ -1750,10 +1750,14 @@ def main() -> None:
     )
     app.run()
     if app._idle_exit:
-        minutes = args.idle_timeout // 60
+        secs = args.idle_timeout
+        if secs >= 60:
+            minutes = secs // 60
+            duration = f"{minutes} minute{'s' if minutes != 1 else ''}"
+        else:
+            duration = f"{secs} second{'s' if secs != 1 else ''}"
         print(
-            f"\nsltop exited after {minutes} minute{'s' if minutes != 1 else ''}"
-            " of inactivity.\n"
+            f"\nsltop exited after {duration} of inactivity.\n"
             "This is by design to conserve login node resources.\n"
             "Re-run sltop when you need it again."
         )
