@@ -825,6 +825,47 @@ def _build_compact_job_card(row: dict, rule: Optional[dict]) -> Panel:
     )
 
 
+def _build_chain_panel(chain: list[dict], rules_map: dict[str, dict]) -> Panel:
+    """Rich Panel showing a vertical dependency chain with arrow connectors."""
+    parts: list = []
+    for i, job in enumerate(chain):
+        rule = rules_map.get(job["partition"])
+        parts.append(_build_compact_job_card(job, rule))
+        if i < len(chain) - 1:
+            # Connector between cards
+            connector = RText()
+            connector.append("              \u2502\n", style="#555555")
+            connector.append("              \u25bc", style="#555555")
+            parts.append(connector)
+
+    # Chain title with state summary
+    n_done = sum(1 for j in chain if j["state"] in ("COMPLETED", "COMPLETING"))
+    n_run = sum(1 for j in chain if j["state"] == "RUNNING")
+    n_pend = sum(1 for j in chain if j["state"] == "PENDING")
+    n_fail = sum(1 for j in chain if j["state"] in ("FAILED", "CANCELLED", "TIMEOUT"))
+
+    status_parts: list[str] = []
+    if n_done:
+        status_parts.append(f"[#22cc44]\u2713{n_done}[/]")
+    if n_run:
+        status_parts.append(f"[#22cc44]\u25b6{n_run}[/]")
+    if n_pend:
+        status_parts.append(f"[#ddaa00]\u23f3{n_pend}[/]")
+    if n_fail:
+        status_parts.append(f"[#dd2222]\u2717{n_fail}[/]")
+    status = " ".join(status_parts)
+
+    title = f"[bold #88aaff]Chain: {len(chain)} jobs[/]  {status}"
+
+    return Panel(
+        Group(*parts),
+        title=title,
+        border_style="#4488cc",
+        expand=True,
+        padding=(1, 2),
+    )
+
+
 _CONFIG_ERROR_REASONS: frozenset[str] = frozenset(
     {
         "QOSMinGRES",
