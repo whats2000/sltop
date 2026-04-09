@@ -1417,19 +1417,51 @@ class SlurmMonitor(App):
         self.sub_title = self._make_subtitle(ts, running, pending, total)
 
     def _fill_my_jobs(self) -> None:
-        """Build enhanced per-job cards for the current user."""
+        """Build enhanced per-job cards for the current user, grouping chains and arrays."""
         current_user = os.environ.get("USER", "") or os.environ.get("LOGNAME", "")
         rules_map = {r["partition"]: r for r in self._rules_cache}
         my_rows = [r for r in self._queue_all_rows if r["user"] == current_user]
-        if my_rows:
-            cards = [
-                _build_job_card(row, rules_map.get(row["partition"])) for row in my_rows
-            ]
-            content = Group(*cards)
-        else:
-            content = "No jobs found for current user."
+
+        if not my_rows:
+            try:
+                self.query_one("#myjobs-content", Static).update(
+                    "No jobs found for current user."
+                )
+            except NoMatches:
+                pass
+            return
+
+        chains, arrays, standalone = _group_my_jobs(my_rows)
+
+        panels: list = []
+
+        # 1. Chain panels (sorted by earliest job ID)
+        chains.sort(
+            key=lambda c: min(
+                int(j["jobid"]) if j["jobid"].isdigit() else 0 for j in c
+            )
+        )
+        for chain in chains:
+            panels.append(_build_chain_panel(chain, rules_map))
+
+        # 2. Array panels (sorted by array job ID)
+        arrays.sort(
+            key=lambda a: int(a[0].get("array_job_id", "0"))
+            if a[0].get("array_job_id", "0").isdigit()
+            else 0
+        )
+        for arr in arrays:
+            panels.append(_build_array_panel(arr))
+
+        # 3. Standalone jobs (sorted by job ID)
+        standalone.sort(
+            key=lambda j: int(j["jobid"]) if j["jobid"].isdigit() else 0
+        )
+        for row in standalone:
+            panels.append(_build_job_card(row, rules_map.get(row["partition"])))
+
         try:
-            self.query_one("#myjobs-content", Static).update(content)
+            self.query_one("#myjobs-content", Static).update(Group(*panels))
         except NoMatches:
             pass
 
