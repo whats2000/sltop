@@ -866,7 +866,9 @@ def _build_array_panel(array_jobs: list[dict]) -> Panel:
     completed = sum(1 for j in array_jobs if j["state"] in ("COMPLETED", "COMPLETING"))
     running = sum(1 for j in array_jobs if j["state"] == "RUNNING")
     pending = sum(1 for j in array_jobs if j["state"] == "PENDING")
-    failed = sum(1 for j in array_jobs if j["state"] in ("FAILED", "CANCELLED", "TIMEOUT"))
+    failed = sum(
+        1 for j in array_jobs if j["state"] in ("FAILED", "CANCELLED", "TIMEOUT")
+    )
 
     # Array name from first job
     array_name = array_jobs[0]["name"]
@@ -1129,8 +1131,19 @@ def _queue(
         if len(parts) < 13:
             continue
         (
-            jobid, partition, user, name, state, elapsed,
-            timelimit, nodes, gres, reason, dependency, array_job_id, array_task_id,
+            jobid,
+            partition,
+            user,
+            name,
+            state,
+            elapsed,
+            timelimit,
+            nodes,
+            gres,
+            reason,
+            dependency,
+            array_job_id,
+            array_task_id,
         ) = parts[:13]
         if partition_filter and partition not in partition_filter:
             continue
@@ -1171,8 +1184,8 @@ def _group_my_jobs(
         jobs_by_id[j["jobid"]] = j
 
     # -- Parse dependencies -> build graph --
-    children: dict[str, list[str]] = {}   # parent_id -> [child_ids]
-    parents: dict[str, list[str]] = {}    # child_id  -> [parent_ids]
+    children: dict[str, list[str]] = {}  # parent_id -> [child_ids]
+    parents: dict[str, list[str]] = {}  # child_id  -> [parent_ids]
 
     dep_re = re.compile(r"(?:after\w*):(\d+)")
 
@@ -1193,10 +1206,7 @@ def _group_my_jobs(
     chains: list[list[dict]] = []
 
     # Roots: jobs that have children but no parents in the set
-    roots = [
-        jid for jid in jobs_by_id
-        if jid in children and jid not in parents
-    ]
+    roots = [jid for jid in jobs_by_id if jid in children and jid not in parents]
     # Sort roots by job ID for deterministic ordering
     roots.sort(key=lambda x: int(x) if x.isdigit() else x)
 
@@ -1211,8 +1221,9 @@ def _group_my_jobs(
             visited.add(cur)
             chain.append(jobs_by_id[cur])
             in_chain.add(cur)
-            for child in sorted(children.get(cur, []),
-                                key=lambda x: int(x) if x.isdigit() else x):
+            for child in sorted(
+                children.get(cur, []), key=lambda x: int(x) if x.isdigit() else x
+            ):
                 if child not in visited:
                     stack.append(child)
         if len(chain) >= 2:
@@ -1239,8 +1250,7 @@ def _group_my_jobs(
 
     # -- Standalone: everything else --
     standalone = [
-        j for j in my_jobs
-        if j["jobid"] not in in_chain and j["jobid"] not in in_array
+        j for j in my_jobs if j["jobid"] not in in_chain and j["jobid"] not in in_array
     ]
 
     return chains, arrays, standalone
@@ -1464,26 +1474,24 @@ class SlurmMonitor(App):
 
         # 1. Chain panels (sorted by earliest job ID)
         chains.sort(
-            key=lambda c: min(
-                int(j["jobid"]) if j["jobid"].isdigit() else 0 for j in c
-            )
+            key=lambda c: min(int(j["jobid"]) if j["jobid"].isdigit() else 0 for j in c)
         )
         for chain in chains:
             panels.append(_build_chain_panel(chain, rules_map))
 
         # 2. Array panels (sorted by array job ID)
         arrays.sort(
-            key=lambda a: int(a[0].get("array_job_id", "0"))
-            if a[0].get("array_job_id", "0").isdigit()
-            else 0
+            key=lambda a: (
+                int(a[0].get("array_job_id", "0"))
+                if a[0].get("array_job_id", "0").isdigit()
+                else 0
+            )
         )
         for arr in arrays:
             panels.append(_build_array_panel(arr))
 
         # 3. Standalone jobs (sorted by job ID)
-        standalone.sort(
-            key=lambda j: int(j["jobid"]) if j["jobid"].isdigit() else 0
-        )
+        standalone.sort(key=lambda j: int(j["jobid"]) if j["jobid"].isdigit() else 0)
         for row in standalone:
             panels.append(_build_job_card(row, rules_map.get(row["partition"])))
 
