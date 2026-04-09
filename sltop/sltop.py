@@ -1306,11 +1306,15 @@ class SlurmMonitor(App):
         interval: int,
         partition_filter: Optional[list[str]],
         user_filter: Optional[str],
+        idle_timeout: int = 300,
     ) -> None:
         super().__init__()
         self.interval = interval
         self.partition_filter = partition_filter
         self.user_filter = user_filter
+        self.idle_timeout = idle_timeout
+        self._last_interaction: float = time.monotonic()
+        self._idle_exit: bool = False
         self._queue_all_rows: list[dict] = []
         self._rules_cache: list[dict] = []
         # Queue sort state: column key (None = no sort), and reverse flag
@@ -1394,9 +1398,39 @@ class SlurmMonitor(App):
             + f"  ·  every {self.interval}s"
         )
 
+    # ── Idle timeout ──────────────────────────────────────────────────────
+
+    def _reset_idle(self) -> None:
+        self._last_interaction = time.monotonic()
+
+    def on_key(self, event) -> None:
+        self._reset_idle()
+
+    def on_mouse_move(self, event) -> None:
+        self._reset_idle()
+
+    def on_mouse_scroll_up(self, event) -> None:
+        self._reset_idle()
+
+    def on_mouse_scroll_down(self, event) -> None:
+        self._reset_idle()
+
+    def _check_idle_timeout(self) -> bool:
+        """Exit if idle too long. Returns True if exiting."""
+        if self.idle_timeout <= 0:
+            return False
+        elapsed = time.monotonic() - self._last_interaction
+        if elapsed >= self.idle_timeout:
+            self._idle_exit = True
+            self.exit()
+            return True
+        return False
+
     # ── Data refresh ───────────────────────────────────────────────────────
 
     def _do_refresh(self) -> None:
+        if self._check_idle_timeout():
+            return
         # Cache rules first so both Resources and Rules tabs share one SLURM call
         self._rules_cache = _rules(self.partition_filter)
         self._fill_resources()
@@ -1690,6 +1724,13 @@ def _parse_args() -> argparse.Namespace:
         metavar="USER",
         help="Show only jobs for USER in queue (default: all)",
     )
+    p.add_argument(
+        "--idle-timeout",
+        type=int,
+        default=300,
+        metavar="SECS",
+        help="Exit after SECS seconds of no interaction (default: 300, 0 to disable)",
+    )
     return p.parse_args()
 
 
@@ -1698,11 +1739,21 @@ def main() -> None:
     partition_filter: Optional[list[str]] = (
         [p.strip() for p in args.partitions.split(",")] if args.partitions else None
     )
-    SlurmMonitor(
+    app = SlurmMonitor(
         interval=args.interval,
         partition_filter=partition_filter,
         user_filter=args.user,
-    ).run()
+        idle_timeout=args.idle_timeout,
+    )
+    app.run()
+    if app._idle_exit:
+        minutes = args.idle_timeout // 60
+        print(
+            f"\nsltop exited after {minutes} minute{'s' if minutes != 1 else ''}"
+            " of inactivity.\n"
+            "This is by design to conserve login node resources.\n"
+            "Re-run sltop when you need it again."
+        )
 
 
 if __name__ == "__main__":
