@@ -1313,8 +1313,9 @@ class SlurmMonitor(App):
         self.partition_filter = partition_filter
         self.user_filter = user_filter
         self.idle_timeout = idle_timeout
-        self._last_interaction: float = time.monotonic()
+        self._last_interaction: float = 0.0  # set properly on mount
         self._idle_exit: bool = False
+        self._mounted: bool = False
         self._queue_all_rows: list[dict] = []
         self._rules_cache: list[dict] = []
         # Queue sort state: column key (None = no sort), and reverse flag
@@ -1381,6 +1382,8 @@ class SlurmMonitor(App):
         self.sub_title = (
             "  ".join(filters) + "  ·  " if filters else ""
         ) + f"every {self.interval}s"
+        self._last_interaction = time.monotonic()
+        self._mounted = True
         self._do_refresh()
         self.set_interval(self.interval, self._do_refresh)
 
@@ -1417,7 +1420,7 @@ class SlurmMonitor(App):
 
     def _check_idle_timeout(self) -> bool:
         """Exit if idle too long. Returns True if exiting."""
-        if self.idle_timeout <= 0:
+        if self.idle_timeout <= 0 or not self._mounted:
             return False
         elapsed = time.monotonic() - self._last_interaction
         if elapsed >= self.idle_timeout:
