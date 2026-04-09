@@ -24,6 +24,7 @@ import argparse
 import getpass
 import math
 import os
+import re
 import subprocess
 import time
 from typing import Optional
@@ -672,21 +673,23 @@ def _partition_color(name: str) -> str:
     return _PARTITION_COLORS[hash(name) % len(_PARTITION_COLORS)]
 
 
+# State → (color, symbol) for job cards
+_STATE_STYLE: dict[str, tuple[str, str]] = {
+    "RUNNING": ("#22cc44", "▶"),
+    "PENDING": ("#ddaa00", "⏳"),
+    "COMPLETING": ("#44dddd", "↻"),
+    "FAILED": ("#dd2222", "✗"),
+    "CANCELLED": ("#dd2222", "✗"),
+    "TIMEOUT": ("#dd4422", "⏱"),
+}
+
+
 def _build_job_card(row: dict, rule: Optional[dict]) -> Panel:
     """Rich Panel card for a single job — enhanced My Jobs visualization."""
     state = row["state"]
     p_color = _partition_color(row["partition"])
 
-    # State color + symbol
-    _SC = {
-        "RUNNING": ("#22cc44", "▶"),
-        "PENDING": ("#ddaa00", "⏳"),
-        "COMPLETING": ("#44dddd", "↻"),
-        "FAILED": ("#dd2222", "✗"),
-        "CANCELLED": ("#dd2222", "✗"),
-        "TIMEOUT": ("#dd4422", "⏱"),
-    }
-    s_color, s_sym = _SC.get(state, ("#aaaaaa", "?"))
+    s_color, s_sym = _STATE_STYLE.get(state, ("#aaaaaa", "?"))
 
     # Reason (translated, with config-error detection)
     raw_reason = row["reason"].strip()
@@ -780,15 +783,7 @@ def _build_compact_job_card(row: dict, rule: Optional[dict]) -> Panel:
     state = row["state"]
     p_color = _partition_color(row["partition"])
 
-    _SC = {
-        "RUNNING": ("#22cc44", "\u25b6"),
-        "PENDING": ("#ddaa00", "\u23f3"),
-        "COMPLETING": ("#44dddd", "\u21bb"),
-        "FAILED": ("#dd2222", "\u2717"),
-        "CANCELLED": ("#dd2222", "\u2717"),
-        "TIMEOUT": ("#dd4422", "\u23f1"),
-    }
-    s_color, s_sym = _SC.get(state, ("#aaaaaa", "?"))
+    s_color, s_sym = _STATE_STYLE.get(state, ("#aaaaaa", "?"))
 
     t = RText()
 
@@ -806,9 +801,6 @@ def _build_compact_job_card(row: dict, rule: Optional[dict]) -> Panel:
         t.append("  /  ", style="#555555")
         t.append(row["timelimit"], style="#ffaa44")
     elif state == "PENDING":
-        raw_reason = row["reason"].strip()
-        if raw_reason.startswith("(") and raw_reason.endswith(")"):
-            raw_reason = raw_reason[1:-1].strip()
         t.append(_translate_reason(row["reason"], rule, job=row), style="#ddaa00")
     elif state in ("COMPLETED", "COMPLETING"):
         t.append(row["elapsed"], style="#44ffaa")
@@ -1173,8 +1165,6 @@ def _group_my_jobs(
         - arrays: list of job-task groups (each group shares array_job_id)
         - standalone: list of individual jobs
     """
-    import re
-
     # -- Index by job ID --
     jobs_by_id: dict[str, dict] = {}
     for j in my_jobs:
