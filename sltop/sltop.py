@@ -866,6 +866,77 @@ def _build_chain_panel(chain: list[dict], rules_map: dict[str, dict]) -> Panel:
     )
 
 
+def _build_array_panel(array_jobs: list[dict]) -> Panel:
+    """Rich Panel summarizing a job array with progress bar and state counts."""
+    total = len(array_jobs)
+
+    # Count states
+    completed = sum(1 for j in array_jobs if j["state"] in ("COMPLETED", "COMPLETING"))
+    running = sum(1 for j in array_jobs if j["state"] == "RUNNING")
+    pending = sum(1 for j in array_jobs if j["state"] == "PENDING")
+    failed = sum(1 for j in array_jobs if j["state"] in ("FAILED", "CANCELLED", "TIMEOUT"))
+
+    # Array name from first job
+    array_name = array_jobs[0]["name"]
+    array_name_display = array_name[:25] + ("\u2026" if len(array_name) > 25 else "")
+
+    # Progress bar
+    bar_width = 20
+    filled = round(completed / total * bar_width) if total else 0
+    bar = "\u2588" * filled + "\u2591" * (bar_width - filled)
+    if completed == total:
+        bar_color = "#22cc44"
+    elif failed > 0:
+        bar_color = "#dd2222"
+    else:
+        bar_color = "#ddaa00"
+
+    t = RText()
+
+    # Progress line
+    t.append(f"  [{bar}] {completed}/{total}\n", style=bar_color)
+    t.append("\n")
+
+    # State breakdown
+    if completed:
+        t.append("  \u2713 ", style="#22cc44")
+        t.append(f"Completed: {completed}\n", style="#22cc44")
+    if running:
+        running_tasks = [
+            j.get("array_task_id", "?") for j in array_jobs if j["state"] == "RUNNING"
+        ]
+        task_str = ", ".join(running_tasks[:10])
+        if len(running_tasks) > 10:
+            task_str += f" \u2026+{len(running_tasks) - 10}"
+        t.append("  \u25b6 ", style="#22cc44")
+        t.append(f"Running: {running}  (task {task_str})\n", style="#22cc44")
+    if pending:
+        t.append("  \u23f3 ", style="#ddaa00")
+        t.append(f"Pending: {pending}\n", style="#ddaa00")
+    if failed:
+        failed_tasks = [
+            j.get("array_task_id", "?")
+            for j in array_jobs
+            if j["state"] in ("FAILED", "CANCELLED", "TIMEOUT")
+        ]
+        task_str = ", ".join(failed_tasks[:10])
+        if len(failed_tasks) > 10:
+            task_str += f" \u2026+{len(failed_tasks) - 10}"
+        t.append("  \u2717 ", style="#dd2222")
+        t.append(f"Failed: {failed}  (task {task_str})\n", style="#dd2222")
+
+    aid = array_jobs[0].get("array_job_id", "?")
+    title = f"[bold #aa88ff]Array: {array_name_display}[/]  [#aaaaaa]({aid})[/]"
+
+    return Panel(
+        t,
+        title=title,
+        border_style="#aa88ff",
+        expand=True,
+        padding=(0, 1),
+    )
+
+
 _CONFIG_ERROR_REASONS: frozenset[str] = frozenset(
     {
         "QOSMinGRES",
