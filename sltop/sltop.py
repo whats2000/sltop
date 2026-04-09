@@ -965,18 +965,19 @@ def _queue(
     user_filter: Optional[str],
 ) -> list[dict]:
     """Return current SLURM queue rows."""
-    cmd = ["squeue", "--noheader", "-o", "%i|%P|%u|%j|%T|%M|%l|%D|%b|%R"]
+    cmd = ["squeue", "--noheader", "-o", "%i|%P|%u|%j|%T|%M|%l|%D|%b|%R|%E|%F|%K"]
     if user_filter:
         cmd += ["-u", user_filter]
     out = _run(cmd)
     rows: list[dict] = []
     for raw in out.splitlines():
         parts = raw.split("|")
-        if len(parts) < 10:
+        if len(parts) < 13:
             continue
-        jobid, partition, user, name, state, elapsed, timelimit, nodes, gres, reason = (
-            parts
-        )
+        (
+            jobid, partition, user, name, state, elapsed,
+            timelimit, nodes, gres, reason, dependency, array_job_id, array_task_id,
+        ) = parts[:13]
         if partition_filter and partition not in partition_filter:
             continue
         rows.append(
@@ -991,6 +992,9 @@ def _queue(
                 "nodes": nodes,
                 "gres": gres,
                 "reason": reason,
+                "dependency": dependency,
+                "array_job_id": array_job_id,
+                "array_task_id": array_task_id,
             }
         )
     return rows
