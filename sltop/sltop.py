@@ -1000,6 +1000,100 @@ def _queue(
     return rows
 
 
+def _group_my_jobs(
+    my_jobs: list[dict],
+) -> tuple[list[list[dict]], list[list[dict]], list[dict]]:
+    """Classify user jobs into chains, arrays, and standalone.
+
+    Returns:
+        (chains, arrays, standalone) where:
+        - chains: list of ordered job lists (each chain is root->leaf)
+        - arrays: list of job-task groups (each group shares array_job_id)
+        - standalone: list of individual jobs
+    """
+    import re
+
+    # -- Index by job ID --
+    jobs_by_id: dict[str, dict] = {}
+    for j in my_jobs:
+        jobs_by_id[j["jobid"]] = j
+
+    # -- Parse dependencies -> build graph --
+    children: dict[str, list[str]] = {}   # parent_id -> [child_ids]
+    parents: dict[str, list[str]] = {}    # child_id  -> [parent_ids]
+
+    dep_re = re.compile(r"(?:after\w*):(\d+)")
+
+    for j in my_jobs:
+        dep_str = j.get("dependency", "")
+        if not dep_str or dep_str in ("(null)", ""):
+            continue
+        for m in dep_re.finditer(dep_str):
+            parent_id = m.group(1)
+            child_id = j["jobid"]
+            # Only track edges where parent is also in user's jobs
+            if parent_id in jobs_by_id:
+                children.setdefault(parent_id, []).append(child_id)
+                parents.setdefault(child_id, []).append(parent_id)
+
+    # -- Find chain roots and walk chains --
+    in_chain: set[str] = set()
+    chains: list[list[dict]] = []
+
+    # Roots: jobs that have children but no parents in the set
+    roots = [
+        jid for jid in jobs_by_id
+        if jid in children and jid not in parents
+    ]
+    # Sort roots by job ID for deterministic ordering
+    roots.sort(key=lambda x: int(x) if x.isdigit() else x)
+
+    for root in roots:
+        chain: list[dict] = []
+        stack = [root]
+        visited: set[str] = set()
+        while stack:
+            cur = stack.pop(0)  # BFS for chain ordering
+            if cur in visited or cur not in jobs_by_id:
+                continue
+            visited.add(cur)
+            chain.append(jobs_by_id[cur])
+            in_chain.add(cur)
+            for child in sorted(children.get(cur, []),
+                                key=lambda x: int(x) if x.isdigit() else x):
+                if child not in visited:
+                    stack.append(child)
+        if len(chain) >= 2:
+            chains.append(chain)
+        else:
+            # Single-node "chain" is not a chain
+            in_chain.discard(root)
+
+    # -- Group array jobs --
+    array_groups: dict[str, list[dict]] = {}
+    for j in my_jobs:
+        aid = j.get("array_job_id", "N/A")
+        if aid and aid != "N/A" and aid != "0" and j["jobid"] not in in_chain:
+            array_groups.setdefault(aid, []).append(j)
+
+    arrays: list[list[dict]] = []
+    in_array: set[str] = set()
+    for aid in sorted(array_groups, key=lambda x: int(x) if x.isdigit() else x):
+        group = array_groups[aid]
+        if len(group) >= 2:
+            arrays.append(group)
+            for j in group:
+                in_array.add(j["jobid"])
+
+    # -- Standalone: everything else --
+    standalone = [
+        j for j in my_jobs
+        if j["jobid"] not in in_chain and j["jobid"] not in in_array
+    ]
+
+    return chains, arrays, standalone
+
+
 # ── Textual App ───────────────────────────────────────────────────────────────
 
 
