@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-04-10
+
+### Added
+
+- **Idle timeout** — automatically exits after 5 minutes of no user interaction (keypress, scroll, mouse) to conserve login node resources; prints a friendly message explaining the exit is by design
+- New CLI flag `--idle-timeout SECS` (default 300, `0` to disable)
+
 ## [0.2.0] — 2026-04-10
 
 ### Added
@@ -34,7 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Stacked node-state bars** (alloc / mix / idle / drain) with per-state colour coding and count legend
 - **Colour-coded utilisation bars** for CPU and GPU: green < 70 %, yellow < 90 %, red ≥ 90 %
 
-[Unreleased]: https://github.com/whats2000/sltop/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/whats2000/sltop/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/whats2000/sltop/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/whats2000/sltop/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/whats2000/sltop/releases/tag/v0.1.0
 
