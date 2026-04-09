@@ -838,13 +838,13 @@ def _build_chain_panel(chain: list[dict], rules_map: dict[str, dict]) -> Panel:
 
     status_parts: list[str] = []
     if n_done:
-        status_parts.append(f"[#22cc44]\u2713{n_done}[/]")
+        status_parts.append(f"[#22cc44]\u2713 {n_done}[/]")
     if n_run:
-        status_parts.append(f"[#22cc44]\u25b6{n_run}[/]")
+        status_parts.append(f"[#22cc44]\u25b6 {n_run}[/]")
     if n_pend:
-        status_parts.append(f"[#ddaa00]\u23f3{n_pend}[/]")
+        status_parts.append(f"[#ddaa00]\u23f3 {n_pend}[/]")
     if n_fail:
-        status_parts.append(f"[#dd2222]\u2717{n_fail}[/]")
+        status_parts.append(f"[#dd2222]\u2717 {n_fail}[/]")
     status = " ".join(status_parts)
 
     title = f"[bold #88aaff]Chain: {len(chain)} jobs[/]  {status}"
