@@ -775,6 +775,56 @@ def _build_job_card(row: dict, rule: Optional[dict]) -> Panel:
     )
 
 
+def _build_compact_job_card(row: dict, rule: Optional[dict]) -> Panel:
+    """Compact Rich Panel for a job inside a chain -- fewer lines than full card."""
+    state = row["state"]
+    p_color = _partition_color(row["partition"])
+
+    _SC = {
+        "RUNNING": ("#22cc44", "\u25b6"),
+        "PENDING": ("#ddaa00", "\u23f3"),
+        "COMPLETING": ("#44dddd", "\u21bb"),
+        "FAILED": ("#dd2222", "\u2717"),
+        "CANCELLED": ("#dd2222", "\u2717"),
+        "TIMEOUT": ("#dd4422", "\u23f1"),
+    }
+    s_color, s_sym = _SC.get(state, ("#aaaaaa", "?"))
+
+    t = RText()
+
+    # Line 1: ID | partition | GRES
+    t.append(row["jobid"], style="bold #ffffff")
+    t.append("  \u2502  ", style="#555555")
+    t.append(row["partition"], style=f"bold {p_color}")
+    t.append("  \u2502  ", style="#555555")
+    t.append(row["gres"] if row["gres"] else "no gpu", style="#ffdd44")
+    t.append("\n")
+
+    # Line 2: time or reason
+    if state == "RUNNING":
+        t.append(row["elapsed"], style="#44ffaa")
+        t.append("  /  ", style="#555555")
+        t.append(row["timelimit"], style="#ffaa44")
+    elif state == "PENDING":
+        raw_reason = row["reason"].strip()
+        if raw_reason.startswith("(") and raw_reason.endswith(")"):
+            raw_reason = raw_reason[1:-1].strip()
+        t.append(_translate_reason(row["reason"], rule, job=row), style="#ddaa00")
+    elif state in ("COMPLETED", "COMPLETING"):
+        t.append(row["elapsed"], style="#44ffaa")
+    else:
+        t.append(row["elapsed"], style="#aaaaaa")
+
+    title_name = row["name"][:25] + ("\u2026" if len(row["name"]) > 25 else "")
+    return Panel(
+        t,
+        title=f"[bold {s_color}]{title_name} {s_sym} {state}[/]",
+        border_style=s_color,
+        expand=True,
+        padding=(0, 1),
+    )
+
+
 _CONFIG_ERROR_REASONS: frozenset[str] = frozenset(
     {
         "QOSMinGRES",
