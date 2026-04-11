@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Connect to compute node** — clickable "⬡ Connect" button on RUNNING job cards in the My Jobs tab; attaches to the job's compute node terminal via `srun --overlap`
+- **Node selection for multi-node jobs** — compact inline dropdown to choose which node to connect to, defaulting to the first (head) node
+- **Array job node selection** — array panel shows per-task node mapping ("Task N → hostname") in the dropdown
+- **Disabled connect button for pending jobs** — non-RUNNING jobs show a greyed-out "⬡ Waiting for node…" button for discoverability
+- **Nested session warning** — warns when connecting from an existing compute node that a nested session will be created
 - **Job cancel with confirmation** — clickable "✗ Cancel" link inside each job card in the My Jobs tab; opens a confirmation dialog before running `scancel`
 - **Chain-aware cancellation** — cancelling an early job in a dependency chain automatically cancels all downstream dependent jobs first (in reverse order)
 - **Cancel for all job types** — standalone jobs, chain jobs (per-job cancel inside the chain group), and array jobs all support cancellation
@@ -17,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - My Jobs tab now uses Textual native `Vertical` containers with `border_title` instead of Rich `Panel` objects, enabling interactive widgets (buttons) inside job cards
+- Job card button row uses `Horizontal` layout with Connect (left) and Cancel (right, pushed to end via spacer) for consistent alignment across all job types
 
 ## [0.2.1] — 2026-04-10
 

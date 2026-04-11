@@ -696,9 +696,7 @@ _STATE_STYLE: dict[str, tuple[str, str]] = {
 }
 
 
-def _build_job_card(
-    row: dict, rule: Optional[dict]
-) -> tuple[RText, str, str]:
+def _build_job_card(row: dict, rule: Optional[dict]) -> tuple[RText, str, str]:
     """Build job card content. Returns (content, title_markup, border_color)."""
     state = row["state"]
     p_color = _partition_color(row["partition"])
@@ -786,9 +784,7 @@ def _build_job_card(
     return t, title, border
 
 
-def _build_compact_job_card(
-    row: dict, rule: Optional[dict]
-) -> tuple[RText, str, str]:
+def _build_compact_job_card(row: dict, rule: Optional[dict]) -> tuple[RText, str, str]:
     """Build compact card content. Returns (content, title_markup, border_color)."""
     state = row["state"]
     p_color = _partition_color(row["partition"])
@@ -1569,7 +1565,9 @@ class SlurmMonitor(App):
         self._my_jobs_rows = my_rows
         self._chain_dependents = {}
         self._cancel_id_map: dict[str, str] = {}  # sanitized_id -> real job ID
-        self._connect_id_map: dict[str, tuple[str, str]] = {}  # safe_id -> (job_id, nodelist)
+        self._connect_id_map: dict[
+            str, tuple[str, str]
+        ] = {}  # safe_id -> (job_id, nodelist)
 
         try:
             container = self.query_one("#myjobs-content", Vertical)
@@ -1589,8 +1587,13 @@ class SlurmMonitor(App):
             return re.sub(r"[^a-zA-Z0-9_-]", "-", job_id)
 
         def _mount_job_card(
-            parent, content: RText, title: str, color: str, job_id: str,
-            job_state: str, nodelist_str: str,
+            parent,
+            content: RText,
+            title: str,
+            color: str,
+            job_id: str,
+            job_state: str,
+            nodelist_str: str,
         ) -> None:
             """Mount a single job card with connect + cancel button row."""
             safe = _safe_id(job_id)
@@ -1668,8 +1671,13 @@ class SlurmMonitor(App):
                 rule = rules_map.get(job["partition"])
                 content, title, color = _build_compact_job_card(job, rule)
                 _mount_job_card(
-                    group, content, title, color, job["jobid"],
-                    job["state"], job.get("nodelist", ""),
+                    group,
+                    content,
+                    title,
+                    color,
+                    job["jobid"],
+                    job["state"],
+                    job.get("nodelist", ""),
                 )
                 if i < len(chain) - 1:
                     connector = RText()
@@ -1765,8 +1773,13 @@ class SlurmMonitor(App):
                 row, rules_map.get(row["partition"])
             )
             _mount_job_card(
-                container, content, title, color, row["jobid"],
-                row["state"], row.get("nodelist", ""),
+                container,
+                content,
+                title,
+                color,
+                row["jobid"],
+                row["state"],
+                row.get("nodelist", ""),
             )
 
     def _fill_resources(self) -> None:
@@ -2041,14 +2054,18 @@ class SlurmMonitor(App):
                 try:
                     r = subprocess.run(
                         ["scancel", jid],
-                        capture_output=True, text=True, timeout=15,
+                        capture_output=True,
+                        text=True,
+                        timeout=15,
                     )
                     if r.returncode == 0:
                         self.notify(f"Cancelled job {jid}", severity="information")
                     else:
                         msg = r.stderr.strip() or f"exit code {r.returncode}"
                         if "invalid job id" in msg.lower():
-                            self.notify(f"Job {jid} already finished", severity="warning")
+                            self.notify(
+                                f"Job {jid} already finished", severity="warning"
+                            )
                         else:
                             self.notify(
                                 f"Failed to cancel job {jid}: {msg}", severity="error"
@@ -2128,7 +2145,17 @@ def main() -> None:
         print("Use 'exit' to disconnect and return to your shell.\n")
         os.execvp(
             "srun",
-            ["srun", "--overlap", "--jobid", job_id, "--nodelist", node, "--cpu-bind=none", "--pty", "bash"],
+            [
+                "srun",
+                "--overlap",
+                "--jobid",
+                job_id,
+                "--nodelist",
+                node,
+                "--cpu-bind=none",
+                "--pty",
+                "bash",
+            ],
         )
 
     if app._idle_exit:
