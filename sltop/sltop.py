@@ -1624,6 +1624,7 @@ class SlurmMonitor(App):
                             options,
                             value=nodes[0],
                             allow_blank=False,
+                            compact=True,
                             id=f"node-select-{safe}",
                             classes="node-select",
                         )
@@ -1733,6 +1734,7 @@ class SlurmMonitor(App):
                         options,
                         value=first_value,
                         allow_blank=False,
+                        compact=True,
                         id=f"node-select-{safe}",
                         classes="node-select",
                     )
