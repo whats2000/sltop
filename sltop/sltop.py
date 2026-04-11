@@ -2117,12 +2117,21 @@ def main() -> None:
     # Handle connect-to-node action
     if isinstance(result, tuple) and len(result) == 3 and result[0] == "connect":
         _, job_id, node = result
-        print(f"\nConnecting to node {node} (job {job_id})...")
-        print("Use 'exit' to disconnect and return to your shell.\n")
-        os.execvp(
-            "srun",
-            ["srun", "--overlap", "--jobid", job_id, "--nodelist", node, "--cpu-bind=none", "--pty", "bash"],
-        )
+
+        # Warn if already on a compute node to avoid stacking srun sessions
+        if os.environ.get("SLURM_JOB_ID"):
+            print(
+                f"\n⚠ You are already on a compute node (job {os.environ['SLURM_JOB_ID']})."
+                f"\nPlease type 'exit' first to return to the login node,"
+                f"\nthen re-run sltop and connect to job {job_id} on {node}.\n"
+            )
+        else:
+            print(f"\nConnecting to node {node} (job {job_id})...")
+            print("Use 'exit' to disconnect and return to your shell.\n")
+            os.execvp(
+                "srun",
+                ["srun", "--overlap", "--jobid", job_id, "--nodelist", node, "--cpu-bind=none", "--pty", "bash"],
+            )
 
     if app._idle_exit:
         secs = args.idle_timeout
