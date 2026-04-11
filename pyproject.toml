@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sltop"
-version = "0.2.1"
+version = "0.3.0"
 description = "nvtop-inspired interactive SLURM cluster dashboard"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -48,4 +48,9 @@ include = [
     "README.md",
     "LICENSE",
     "CHANGELOG.md",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.10",
 ]

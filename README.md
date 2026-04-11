@@ -51,6 +51,8 @@ Monitor partitions, scheduling rules, the full job queue, and your own running/p
 - 📋 **Rules tab** — scheduling constraints (MaxTime, QoS, GPU limits, node limits, TRES) rendered as Rich panels
 - 📜 **Queue tab** — full SLURM job queue with sortable columns (click any header); PENDING config-errors highlighted as `INCORRECT_CONFIG` in red with a plain-English explanation
 - 👤 **My Jobs tab** — cards for the current user's jobs showing elapsed/limit time, resource requests, GPU mini-bar, and a human-readable translation of every SLURM reason code
+- 🔗 **Connect to compute node** — one-click "⬡ Connect" button on running jobs to attach to the compute node terminal via `srun --overlap`; supports multi-node jobs with node selection dropdown
+- ❌ **Job cancel with confirmation** — "✗ Cancel" button on every job card with chain-aware cancellation (downstream dependents cancelled automatically)
 - 🔄 **Auto-refresh** — all tabs update on a configurable interval (default 10 s) with last-refresh timestamp in the subtitle bar
 - 🌈 **Rich colour UI** — explicit RGB colours via [Textual](https://github.com/Textualize/textual) + [Rich](https://github.com/Textualize/rich); stacked node-state bars, colour-coded utilisation bars, per-partition colour coding
 
@@ -61,7 +63,7 @@ Monitor partitions, scheduling rules, the full job queue, and your own running/p
 | Requirement                      | Notes                                                |
 | -------------------------------- | ---------------------------------------------------- |
 | **Python ≥ 3.8**                 | Pure Python — no Bash or SSH required                |
-| **SLURM** (`squeue`, `scontrol`, `sinfo`, `sacctmgr`) | Must be available on the login node |
+| **SLURM** (`squeue`, `scontrol`, `sinfo`, `sacctmgr`, `scancel`, `srun`) | Must be available on the login node |
 | **textual ≥ 0.50**               | Installed automatically as a dependency              |
 
 ---
@@ -164,7 +166,7 @@ PENDING jobs whose reason code indicates a **configuration error** (e.g. `QOSMin
 
 ### ④ My Jobs
 
-Rich Panel cards for every job belonging to the current Unix user, showing:
+Interactive cards for every job belonging to the current Unix user, with:
 
 - Job state with colour and symbol
 - Job ID, partition (colour-coded), user
@@ -172,6 +174,8 @@ Rich Panel cards for every job belonging to the current Unix user, showing:
 - Node count and GRES request
 - GPU mini-bar (request vs partition total)
 - Plain-English translation of the SLURM reason code
+- **⬡ Connect** button (RUNNING jobs) — attaches to the compute node terminal via `srun --overlap`; for multi-node jobs, a dropdown lets you pick which node to connect to
+- **✗ Cancel** button — cancels the job with a confirmation dialog; chain-aware (cancels downstream dependents automatically)
 
 ---
 
@@ -185,6 +189,8 @@ Login Node
 │  ├─ scontrol ──► Rules tab                   │
 │  ├─ sacctmgr ──► QoS GPU limits              │
 │  ├─ squeue   ──► Queue / My Jobs tabs        │
+│  ├─ scancel  ──► Job cancellation            │
+│  ├─ srun     ──► Connect to compute node     │
 │  └─ Textual TUI render loop                  │
 └──────────────────────────────────────────────┘
 ```
