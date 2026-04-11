@@ -2116,7 +2116,18 @@ def main() -> None:
         user_filter=args.user,
         idle_timeout=args.idle_timeout,
     )
-    app.run()
+    result = app.run()
+
+    # Handle connect-to-node action
+    if isinstance(result, tuple) and len(result) == 3 and result[0] == "connect":
+        _, job_id, node = result
+        print(f"\nConnecting to node {node} (job {job_id})...")
+        print("Use 'exit' to disconnect and return to your shell.\n")
+        os.execvp(
+            "srun",
+            ["srun", "--overlap", "--jobid", job_id, "--nodelist", node, "--pty", "bash"],
+        )
+
     if app._idle_exit:
         secs = args.idle_timeout
         if secs >= 60:
