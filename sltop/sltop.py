@@ -38,7 +38,6 @@ from textual.binding import Binding
 from textual.containers import Grid, Horizontal, Vertical, VerticalScroll
 from textual.css.query import NoMatches
 from textual.screen import ModalScreen
-from textual.widget import Widget
 from textual.widgets import (
     Button,
     DataTable,
@@ -1623,6 +1622,7 @@ class SlurmMonitor(App):
                         Select(
                             options,
                             value=nodes[0],
+                            allow_blank=False,
                             id=f"node-select-{safe}",
                             classes="node-select",
                         )
@@ -1637,7 +1637,7 @@ class SlurmMonitor(App):
                     )
                 )
 
-            row.mount(Widget(classes="spacer"))
+            row.mount(Static("", classes="spacer"))
             row.mount(
                 Button(
                     "\u2717 Cancel",
@@ -1731,6 +1731,7 @@ class SlurmMonitor(App):
                     Select(
                         options,
                         value=first_value,
+                        allow_blank=False,
                         id=f"node-select-{safe}",
                         classes="node-select",
                     )
@@ -1745,7 +1746,7 @@ class SlurmMonitor(App):
                     )
                 )
 
-            row.mount(Widget(classes="spacer"))
+            row.mount(Static("", classes="spacer"))
             row.mount(
                 Button(
                     "✗ Cancel",
