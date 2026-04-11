@@ -1358,12 +1358,46 @@ class SlurmMonitor(App):
         min-width: 14;
         height: 1;
         padding: 0 0;
-        margin: 1 0 0 0;
+        margin: 0;
     }
     .cancel-link:hover {
         background: #441111;
         color: #ff4444;
         text-style: bold underline;
+    }
+    .button-row {
+        height: auto;
+        margin: 1 0 0 0;
+        align: left middle;
+    }
+    .connect-link {
+        background: transparent;
+        color: #6688cc;
+        text-style: underline;
+        border: none;
+        min-width: 14;
+        height: 1;
+        padding: 0 0;
+        margin: 0;
+    }
+    .connect-link:hover {
+        background: #112244;
+        color: #4499ff;
+        text-style: bold underline;
+    }
+    .connect-link:disabled {
+        color: #555555;
+        text-style: none;
+    }
+    .node-select {
+        width: auto;
+        min-width: 16;
+        height: 1;
+        margin: 0 0 0 1;
+    }
+    .spacer {
+        width: 1fr;
+        height: 1;
     }
     #statusbar {
         display: none;
