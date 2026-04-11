@@ -35,16 +35,19 @@ from rich.text import Text as RText
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
+from textual.containers import Grid, Vertical, VerticalScroll
 from textual.css.query import NoMatches
+from textual.screen import ModalScreen
 from textual.widgets import (
+    Button,
     DataTable,
     Footer,
     Header,
+    Label,
     Static,
     TabbedContent,
     TabPane,
 )
-from textual.containers import VerticalScroll
 
 # ── SLURM data helpers ────────────────────────────────────────────────────────
 
@@ -684,8 +687,10 @@ _STATE_STYLE: dict[str, tuple[str, str]] = {
 }
 
 
-def _build_job_card(row: dict, rule: Optional[dict]) -> Panel:
-    """Rich Panel card for a single job — enhanced My Jobs visualization."""
+def _build_job_card(
+    row: dict, rule: Optional[dict]
+) -> tuple[RText, str, str]:
+    """Build job card content. Returns (content, title_markup, border_color)."""
     state = row["state"]
     p_color = _partition_color(row["partition"])
 
@@ -764,22 +769,18 @@ def _build_job_card(row: dict, rule: Optional[dict]) -> Panel:
         t.append("  ", style="")
         t.append("Nodes      ", style="#888888")
         t.append(translated, style="#aaaaaa")
-    t.append("\n")
 
     border = "#dd2222" if is_config_error else s_color
     title_state = f"[bold {s_color}]{s_sym} {state}[/]"
     title_name = row["name"][:30] + ("…" if len(row["name"]) > 30 else "")
-    return Panel(
-        t,
-        title=f"{title_state}  [bold #ffffff]{row['jobid']}[/]  [#aaaaaa]{title_name}[/]",
-        border_style=border,
-        expand=True,
-        padding=(0, 1),
-    )
+    title = f"{title_state}  [bold #ffffff]{row['jobid']}[/]  [#aaaaaa]{title_name}[/]"
+    return t, title, border
 
 
-def _build_compact_job_card(row: dict, rule: Optional[dict]) -> Panel:
-    """Compact Rich Panel for a job inside a chain -- fewer lines than full card."""
+def _build_compact_job_card(
+    row: dict, rule: Optional[dict]
+) -> tuple[RText, str, str]:
+    """Build compact card content. Returns (content, title_markup, border_color)."""
     state = row["state"]
     p_color = _partition_color(row["partition"])
 
@@ -808,29 +809,12 @@ def _build_compact_job_card(row: dict, rule: Optional[dict]) -> Panel:
         t.append(row["elapsed"], style="#aaaaaa")
 
     title_name = row["name"][:25] + ("\u2026" if len(row["name"]) > 25 else "")
-    return Panel(
-        t,
-        title=f"[bold {s_color}]{title_name} {s_sym} {state}[/]",
-        border_style=s_color,
-        expand=True,
-        padding=(0, 1),
-    )
+    title = f"[bold {s_color}]{title_name} {s_sym} {state}[/]"
+    return t, title, s_color
 
 
-def _build_chain_panel(chain: list[dict], rules_map: dict[str, dict]) -> Panel:
-    """Rich Panel showing a vertical dependency chain with arrow connectors."""
-    parts: list = []
-    for i, job in enumerate(chain):
-        rule = rules_map.get(job["partition"])
-        parts.append(_build_compact_job_card(job, rule))
-        if i < len(chain) - 1:
-            # Connector between cards
-            connector = RText()
-            connector.append("              \u2502\n", style="#555555")
-            connector.append("              \u25bc", style="#555555")
-            parts.append(connector)
-
-    # Chain title with state summary
+def _chain_title(chain: list[dict]) -> str:
+    """Build the title markup for a chain group container."""
     n_done = sum(1 for j in chain if j["state"] in ("COMPLETED", "COMPLETING"))
     n_run = sum(1 for j in chain if j["state"] == "RUNNING")
     n_pend = sum(1 for j in chain if j["state"] == "PENDING")
@@ -846,19 +830,12 @@ def _build_chain_panel(chain: list[dict], rules_map: dict[str, dict]) -> Panel:
     if n_fail:
         status_parts.append(f"[#dd2222]\u2717 {n_fail}[/]")
     status = " ".join(status_parts)
-
-    title = f"[bold #88aaff]Chain: {len(chain)} jobs[/]  {status}"
-
-    return Panel(
-        Group(*parts),
-        title=title,
-        border_style="#4488cc",
-        expand=True,
-        padding=(1, 2),
-    )
+    return f"[bold #88aaff]Chain: {len(chain)} jobs[/]  {status}"
 
 
-def _build_array_panel(array_jobs: list[dict]) -> Panel:
+def _build_array_panel(
+    array_jobs: list[dict],
+) -> tuple[RText, str, str]:
     """Rich Panel summarizing a job array with progress bar and state counts."""
     total = len(array_jobs)
 
@@ -921,14 +898,7 @@ def _build_array_panel(array_jobs: list[dict]) -> Panel:
 
     aid = array_jobs[0].get("array_job_id", "?")
     title = f"[bold #aa88ff]Array: {array_name_display}[/]  [#aaaaaa]({aid})[/]"
-
-    return Panel(
-        t,
-        title=title,
-        border_style="#aa88ff",
-        expand=True,
-        padding=(0, 1),
-    )
+    return t, title, "#aa88ff"
 
 
 _CONFIG_ERROR_REASONS: frozenset[str] = frozenset(
@@ -1256,6 +1226,63 @@ def _group_my_jobs(
     return chains, arrays, standalone
 
 
+# ── Cancel Confirmation Screen ────────────────────────────────────────────────
+
+
+class CancelConfirmScreen(ModalScreen[bool]):
+    """Confirmation dialog before cancelling SLURM job(s)."""
+
+    CSS = """
+    CancelConfirmScreen {
+        align: center middle;
+        background: $primary 30%;
+    }
+    #confirm-dialog {
+        grid-size: 2;
+        grid-gutter: 1 2;
+        grid-rows: 1fr 3;
+        padding: 0 1;
+        width: 70;
+        height: 11;
+        border: thick $background 80%;
+        background: $surface;
+    }
+    #confirm-question {
+        column-span: 2;
+        height: 1fr;
+        width: 1fr;
+        content-align: center middle;
+    }
+    #confirm-yes, #confirm-no {
+        width: 100%;
+    }
+    """
+
+    BINDINGS = [
+        Binding("escape", "dismiss_dialog", "Close", show=False),
+    ]
+
+    def __init__(self, job_ids: list[str], description: str) -> None:
+        super().__init__()
+        self._job_ids = job_ids
+        self._description = description
+
+    def compose(self) -> ComposeResult:
+        yield Grid(
+            Label(self._description, id="confirm-question"),
+            Button("Cancel Job(s)", variant="error", id="confirm-yes"),
+            Button("Back", variant="primary", id="confirm-no"),
+            id="confirm-dialog",
+        )
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        event.stop()
+        self.dismiss(event.button.id == "confirm-yes")
+
+    def action_dismiss_dialog(self) -> None:
+        self.dismiss(False)
+
+
 # ── Textual App ───────────────────────────────────────────────────────────────
 
 
@@ -1296,6 +1323,38 @@ class SlurmMonitor(App):
     #myjobs-content {
         height: auto;
     }
+    .job-card {
+        height: auto;
+        padding: 0 1;
+        margin: 0 0 1 0;
+    }
+    .job-card > Static {
+        height: auto;
+    }
+    .chain-group {
+        height: auto;
+        padding: 1 2;
+        margin: 0 0 1 0;
+    }
+    .chain-connector {
+        height: auto;
+        content-align: center middle;
+    }
+    .cancel-link {
+        background: transparent;
+        color: #ff6666;
+        text-style: underline;
+        border: none;
+        min-width: 14;
+        height: 1;
+        padding: 0 0;
+        margin: 1 0 0 0;
+    }
+    .cancel-link:hover {
+        background: #441111;
+        color: #ff4444;
+        text-style: bold underline;
+    }
     #statusbar {
         display: none;
     }
@@ -1333,6 +1392,9 @@ class SlurmMonitor(App):
         self._sort_rev: bool = False
         # Store current user for highlighting in queue view
         self.current_user = getpass.getuser()
+        # Cancel support: job rows and chain dependency map
+        self._my_jobs_rows: list[dict] = []
+        self._chain_dependents: dict[str, list[str]] = {}
 
     # Column key → dict field mapping (same order as add_columns below)
     _COL_KEYS = [
@@ -1377,7 +1439,7 @@ class SlurmMonitor(App):
                 yield tbl
             with TabPane("④ My Jobs", id="tab-myjobs"):
                 with VerticalScroll(id="myjobs-scroll"):
-                    yield Static("Loading…", id="myjobs-content")
+                    yield Vertical(Static("Loading…"), id="myjobs-content")
         yield Footer()
 
     # ── Lifecycle ──────────────────────────────────────────────────────────
@@ -1458,26 +1520,71 @@ class SlurmMonitor(App):
         current_user = os.environ.get("USER", "") or os.environ.get("LOGNAME", "")
         rules_map = {r["partition"]: r for r in self._rules_cache}
         my_rows = [r for r in self._queue_all_rows if r["user"] == current_user]
+        self._my_jobs_rows = my_rows
+        self._chain_dependents = {}
+        self._cancel_id_map: dict[str, str] = {}  # sanitized_id -> real job ID
+
+        try:
+            container = self.query_one("#myjobs-content", Vertical)
+        except NoMatches:
+            return
+
+        container.remove_children()
 
         if not my_rows:
-            try:
-                self.query_one("#myjobs-content", Static).update(
-                    "No jobs found for current user."
-                )
-            except NoMatches:
-                pass
+            container.mount(Static("No jobs found for current user."))
             return
 
         chains, arrays, standalone = _group_my_jobs(my_rows)
 
-        panels: list = []
+        def _safe_id(job_id: str) -> str:
+            """Sanitize job ID for use as a Textual widget ID."""
+            return re.sub(r"[^a-zA-Z0-9_-]", "-", job_id)
+
+        def _mount_job_card(
+            parent, content: RText, title: str, color: str, job_id: str
+        ) -> None:
+            """Mount a single job card with cancel button inside parent."""
+            safe = _safe_id(job_id)
+            self._cancel_id_map[safe] = job_id
+            card = Vertical(classes="job-card")
+            card.border_title = title
+            card.styles.border = ("round", color)
+            parent.mount(card)
+            card.mount(Static(content))
+            card.mount(
+                Button(
+                    "✗ Cancel",
+                    id=f"cancel-{safe}",
+                    classes="cancel-link",
+                )
+            )
 
         # 1. Chain panels (sorted by earliest job ID)
         chains.sort(
             key=lambda c: min(int(j["jobid"]) if j["jobid"].isdigit() else 0 for j in c)
         )
         for chain in chains:
-            panels.append(_build_chain_panel(chain, rules_map))
+            # Build chain dependency map: each job maps to all downstream jobs
+            chain_ids = [j["jobid"] for j in chain]
+            for idx, jid in enumerate(chain_ids):
+                self._chain_dependents[jid] = list(reversed(chain_ids[idx + 1 :]))
+
+            # Outer chain group container
+            group = Vertical(classes="chain-group")
+            group.border_title = _chain_title(chain)
+            group.styles.border = ("round", "#4488cc")
+            container.mount(group)
+
+            for i, job in enumerate(chain):
+                rule = rules_map.get(job["partition"])
+                content, title, color = _build_compact_job_card(job, rule)
+                _mount_job_card(group, content, title, color, job["jobid"])
+                if i < len(chain) - 1:
+                    connector = RText()
+                    connector.append("              \u2502\n", style="#555555")
+                    connector.append("              \u25bc", style="#555555")
+                    group.mount(Static(connector, classes="chain-connector"))
 
         # 2. Array panels (sorted by array job ID)
         arrays.sort(
@@ -1488,17 +1595,30 @@ class SlurmMonitor(App):
             )
         )
         for arr in arrays:
-            panels.append(_build_array_panel(arr))
+            content, title, color = _build_array_panel(arr)
+            aid = arr[0].get("array_job_id", arr[0]["jobid"])
+            safe = _safe_id(aid)
+            self._cancel_id_map[safe] = aid
+            card = Vertical(classes="job-card")
+            card.border_title = title
+            card.styles.border = ("round", color)
+            container.mount(card)
+            card.mount(Static(content))
+            card.mount(
+                Button(
+                    "✗ Cancel",
+                    id=f"cancel-{safe}",
+                    classes="cancel-link",
+                )
+            )
 
         # 3. Standalone jobs (sorted by job ID)
         standalone.sort(key=lambda j: int(j["jobid"]) if j["jobid"].isdigit() else 0)
         for row in standalone:
-            panels.append(_build_job_card(row, rules_map.get(row["partition"])))
-
-        try:
-            self.query_one("#myjobs-content", Static).update(Group(*panels))
-        except NoMatches:
-            pass
+            content, title, color = _build_job_card(
+                row, rules_map.get(row["partition"])
+            )
+            _mount_job_card(container, content, title, color, row["jobid"])
 
     def _fill_resources(self) -> None:
         resource_rows = _resources(self.partition_filter)
@@ -1702,6 +1822,62 @@ class SlurmMonitor(App):
             self.query_one("#tbl-queue", DataTable).focus()
         except NoMatches:
             pass
+
+    # ── Job cancel ────────────────────────────────────────────────────────
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle cancel-link button presses in My Jobs tab."""
+        btn_id = event.button.id or ""
+        if not btn_id.startswith("cancel-"):
+            return
+        safe_id = btn_id.removeprefix("cancel-")
+        job_id = self._cancel_id_map.get(safe_id, safe_id)
+
+        # Build the list of jobs to cancel: dependents first, then this job
+        dependents = self._chain_dependents.get(job_id, [])
+        all_ids = dependents + [job_id]
+
+        # Find job info for display
+        job = next((r for r in self._my_jobs_rows if r["jobid"] == job_id), None)
+        job_name = job["name"] if job else "unknown"
+        job_state = job["state"] if job else "?"
+        job_part = job["partition"] if job else "?"
+
+        if len(all_ids) == 1:
+            desc = (
+                f"Cancel job [b]{job_id}[/b] ({job_name}, {job_state})?\n"
+                f"Partition: {job_part}"
+            )
+        else:
+            desc = (
+                f"Cancel job [b]{job_id}[/b] and {len(dependents)} dependent job(s)?\n"
+                f"Will cancel in order: {', '.join(all_ids)}"
+            )
+
+        def on_confirm(confirmed: bool | None) -> None:
+            if not confirmed:
+                return
+            for jid in all_ids:
+                try:
+                    r = subprocess.run(
+                        ["scancel", jid],
+                        capture_output=True, text=True, timeout=15,
+                    )
+                    if r.returncode == 0:
+                        self.notify(f"Cancelled job {jid}", severity="information")
+                    else:
+                        msg = r.stderr.strip() or f"exit code {r.returncode}"
+                        if "invalid job id" in msg.lower():
+                            self.notify(f"Job {jid} already finished", severity="warning")
+                        else:
+                            self.notify(
+                                f"Failed to cancel job {jid}: {msg}", severity="error"
+                            )
+                except Exception as exc:
+                    self.notify(f"Failed to cancel job {jid}: {exc}", severity="error")
+            self._do_refresh()
+
+        self.push_screen(CancelConfirmScreen(all_ids, desc), on_confirm)
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────

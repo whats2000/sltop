@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Job cancel with confirmation** — clickable "✗ Cancel" link inside each job card in the My Jobs tab; opens a confirmation dialog before running `scancel`
+- **Chain-aware cancellation** — cancelling an early job in a dependency chain automatically cancels all downstream dependent jobs first (in reverse order)
+- **Cancel for all job types** — standalone jobs, chain jobs (per-job cancel inside the chain group), and array jobs all support cancellation
+- Graceful handling when a job finishes between clicking cancel and confirming (shows warning instead of error)
+
+### Changed
+
+- My Jobs tab now uses Textual native `Vertical` containers with `border_title` instead of Rich `Panel` objects, enabling interactive widgets (buttons) inside job cards
+
 ## [0.2.1] — 2026-04-10
 
 ### Added
