@@ -1569,6 +1569,7 @@ class SlurmMonitor(App):
         self._my_jobs_rows = my_rows
         self._chain_dependents = {}
         self._cancel_id_map: dict[str, str] = {}  # sanitized_id -> real job ID
+        self._connect_id_map: dict[str, tuple[str, str]] = {}  # safe_id -> (job_id, nodelist)
 
         try:
             container = self.query_one("#myjobs-content", Vertical)
