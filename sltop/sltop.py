@@ -25,9 +25,7 @@ import getpass
 import math
 import os
 import re
-import signal
 import subprocess
-import sys
 import time
 from typing import Optional
 
@@ -2103,31 +2101,7 @@ def _parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-_RECONNECT_FILE = f"/tmp/.sltop_reconnect_{os.getuid()}"
-
-
-def _connect_to_node(job_id: str, node: str) -> None:
-    """Replace current process with srun --overlap to connect to a compute node."""
-    print(f"\nConnecting to node {node} (job {job_id})...")
-    print("Use 'exit' to disconnect and return to your shell.\n")
-    os.execvp(
-        "srun",
-        ["srun", "--overlap", "--jobid", job_id, "--nodelist", node, "--cpu-bind=none", "--pty", "bash"],
-    )
-
-
 def main() -> None:
-    # Check for pending reconnect from a previous compute-node switch
-    if os.path.exists(_RECONNECT_FILE):
-        try:
-            with open(_RECONNECT_FILE) as f:
-                parts = f.read().strip().split("|")
-            os.unlink(_RECONNECT_FILE)
-            if len(parts) == 2:
-                _connect_to_node(parts[0], parts[1])
-        except OSError:
-            pass
-
     args = _parse_args()
     partition_filter: Optional[list[str]] = (
         [p.strip() for p in args.partitions.split(",")] if args.partitions else None
@@ -2143,20 +2117,19 @@ def main() -> None:
     # Handle connect-to-node action
     if isinstance(result, tuple) and len(result) == 3 and result[0] == "connect":
         _, job_id, node = result
-
         if os.environ.get("SLURM_JOB_ID"):
-            # On a compute node: save reconnect info, kill parent bash to
-            # collapse back to login node. Next sltop launch auto-connects.
-            with open(_RECONNECT_FILE, "w") as f:
-                f.write(f"{job_id}|{node}")
-            print(f"\nSwitching to node {node} (job {job_id})...")
-            print("Disconnecting from current node...\n")
-            parent_pid = os.getppid()
-            signal.signal(signal.SIGHUP, signal.SIG_IGN)
-            os.kill(parent_pid, signal.SIGTERM)
-            sys.exit(0)
-        else:
-            _connect_to_node(job_id, node)
+            print(
+                f"\n⚠ Warning: You are already on a compute node"
+                f" (job {os.environ['SLURM_JOB_ID']})."
+                f"\n  Connecting will create a nested session."
+                f"\n  You will need to type 'exit' multiple times to fully disconnect.\n"
+            )
+        print(f"Connecting to node {node} (job {job_id})...")
+        print("Use 'exit' to disconnect and return to your shell.\n")
+        os.execvp(
+            "srun",
+            ["srun", "--overlap", "--jobid", job_id, "--nodelist", node, "--cpu-bind=none", "--pty", "bash"],
+        )
 
     if app._idle_exit:
         secs = args.idle_timeout
