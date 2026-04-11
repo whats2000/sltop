@@ -1589,9 +1589,10 @@ class SlurmMonitor(App):
             return re.sub(r"[^a-zA-Z0-9_-]", "-", job_id)
 
         def _mount_job_card(
-            parent, content: RText, title: str, color: str, job_id: str
+            parent, content: RText, title: str, color: str, job_id: str,
+            job_state: str, nodelist_str: str,
         ) -> None:
-            """Mount a single job card with cancel button inside parent."""
+            """Mount a single job card with connect + cancel button row."""
             safe = _safe_id(job_id)
             self._cancel_id_map[safe] = job_id
             card = Vertical(classes="job-card")
@@ -1599,9 +1600,47 @@ class SlurmMonitor(App):
             card.styles.border = ("round", color)
             parent.mount(card)
             card.mount(Static(content))
-            card.mount(
+
+            # Button row: [Connect] [NodeSelect] <spacer> [Cancel]
+            row = Horizontal(classes="button-row")
+            card.mount(row)
+
+            is_running = job_state == "RUNNING"
+            nodes = _expand_nodelist(nodelist_str) if is_running else []
+
+            if is_running and nodes:
+                self._connect_id_map[safe] = (job_id, nodelist_str)
+                row.mount(
+                    Button(
+                        "⬡ Connect",
+                        id=f"connect-{safe}",
+                        classes="connect-link",
+                    )
+                )
+                if len(nodes) > 1:
+                    options = [(n, n) for n in nodes]
+                    row.mount(
+                        Select(
+                            options,
+                            value=nodes[0],
+                            id=f"node-select-{safe}",
+                            classes="node-select",
+                        )
+                    )
+            else:
+                row.mount(
+                    Button(
+                        "⬡ Waiting for node\u2026",
+                        id=f"connect-{safe}",
+                        classes="connect-link",
+                        disabled=True,
+                    )
+                )
+
+            row.mount(Widget(classes="spacer"))
+            row.mount(
                 Button(
-                    "✗ Cancel",
+                    "\u2717 Cancel",
                     id=f"cancel-{safe}",
                     classes="cancel-link",
                 )
@@ -1626,7 +1665,10 @@ class SlurmMonitor(App):
             for i, job in enumerate(chain):
                 rule = rules_map.get(job["partition"])
                 content, title, color = _build_compact_job_card(job, rule)
-                _mount_job_card(group, content, title, color, job["jobid"])
+                _mount_job_card(
+                    group, content, title, color, job["jobid"],
+                    job["state"], job.get("nodelist", ""),
+                )
                 if i < len(chain) - 1:
                     connector = RText()
                     connector.append("              \u2502\n", style="#555555")
@@ -1665,7 +1707,10 @@ class SlurmMonitor(App):
             content, title, color = _build_job_card(
                 row, rules_map.get(row["partition"])
             )
-            _mount_job_card(container, content, title, color, row["jobid"])
+            _mount_job_card(
+                container, content, title, color, row["jobid"],
+                row["state"], row.get("nodelist", ""),
+            )
 
     def _fill_resources(self) -> None:
         resource_rows = _resources(self.partition_filter)
