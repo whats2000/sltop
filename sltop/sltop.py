@@ -1981,6 +1981,37 @@ class SlurmMonitor(App):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle cancel-link button presses in My Jobs tab."""
         btn_id = event.button.id or ""
+
+        # Handle connect button
+        if btn_id.startswith("connect-"):
+            safe_id = btn_id.removeprefix("connect-")
+            connect_info = self._connect_id_map.get(safe_id)
+            if not connect_info:
+                return
+
+            job_id, nodelist_str = connect_info
+
+            # Try to find the node-select widget for this job
+            try:
+                select = self.query_one(f"#node-select-{safe_id}", Select)
+                selected = str(select.value)
+            except NoMatches:
+                # Single-node job: expand the nodelist directly
+                nodes = _expand_nodelist(nodelist_str)
+                if not nodes:
+                    self.notify("No nodes available", severity="error")
+                    return
+                selected = nodes[0]
+
+            # For array jobs, selected value is "arrayid_taskid|node"
+            if "|" in selected:
+                job_id, node = selected.split("|", 1)
+            else:
+                node = selected
+
+            self.exit(result=("connect", job_id, node))
+            return
+
         if not btn_id.startswith("cancel-"):
             return
         safe_id = btn_id.removeprefix("cancel-")
