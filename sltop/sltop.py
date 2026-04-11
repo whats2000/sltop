@@ -1393,6 +1393,7 @@ class SlurmMonitor(App):
     .node-select {
         width: auto;
         min-width: 16;
+        max-width: 40;
         height: 1;
         margin: 0 0 0 1;
     }
