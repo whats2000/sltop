@@ -1717,36 +1717,28 @@ class SlurmMonitor(App):
                         if not first_value:
                             first_value = value
 
-                if options:
-                    self._connect_id_map[safe] = (aid, "")
-                    row.mount(
-                        Button(
-                            "\u2b21 Connect",
-                            id=f"connect-{safe}",
-                            classes="connect-link",
-                        )
+                # Array connect uses Select for node; nodelist stored as ""
+                # because the Select value encodes both job ID and node
+                self._connect_id_map[safe] = (aid, "")
+                row.mount(
+                    Button(
+                        "⬡ Connect",
+                        id=f"connect-{safe}",
+                        classes="connect-link",
                     )
-                    row.mount(
-                        Select(
-                            options,
-                            value=first_value,
-                            id=f"node-select-{safe}",
-                            classes="node-select",
-                        )
+                )
+                row.mount(
+                    Select(
+                        options,
+                        value=first_value,
+                        id=f"node-select-{safe}",
+                        classes="node-select",
                     )
-                else:
-                    row.mount(
-                        Button(
-                            "\u2b21 Waiting for node\u2026",
-                            id=f"connect-{safe}",
-                            classes="connect-link",
-                            disabled=True,
-                        )
-                    )
+                )
             else:
                 row.mount(
                     Button(
-                        "\u2b21 Waiting for node\u2026",
+                        "⬡ Waiting for node\u2026",
                         id=f"connect-{safe}",
                         classes="connect-link",
                         disabled=True,
@@ -1756,7 +1748,7 @@ class SlurmMonitor(App):
             row.mount(Widget(classes="spacer"))
             row.mount(
                 Button(
-                    "\u2717 Cancel",
+                    "✗ Cancel",
                     id=f"cancel-{safe}",
                     classes="cancel-link",
                 )
@@ -1979,7 +1971,7 @@ class SlurmMonitor(App):
     # ── Job cancel ────────────────────────────────────────────────────────
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        """Handle cancel-link button presses in My Jobs tab."""
+        """Handle connect and cancel button presses in My Jobs tab."""
         btn_id = event.button.id or ""
 
         # Handle connect button
