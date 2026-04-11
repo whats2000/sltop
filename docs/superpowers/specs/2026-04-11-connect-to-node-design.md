@@ -13,7 +13,7 @@ Add a "Connect" button to RUNNING job cards in the My Jobs tab that lets the use
 - Uses `srun --overlap --jobid <id> --nodelist <node> --pty bash` (not SSH)
 - Node selection defaults to the first node (head node), with a dropdown to pick others for multi-node jobs
 - Cancel button is always pushed to the right end of the button row, regardless of whether Connect is present
-- Only RUNNING jobs show the Connect button
+- RUNNING jobs show an active Connect button; non-RUNNING jobs show a disabled "Waiting for node…" button for discoverability
 - sltop exits and is replaced by the `srun` process; user relaunches sltop manually after disconnecting
 
 ## Data Layer
@@ -43,20 +43,20 @@ Layout by job state:
 ```
 RUNNING single-node:  [ ⬡ Connect ]                       [ ✗ Cancel ]
 RUNNING multi-node:   [ ⬡ Connect ]  [ Select: node ▼ ]   [ ✗ Cancel ]
-PENDING/other:                                              [ ✗ Cancel ]
+PENDING/other:        [ ⬡ Waiting for node… ] (disabled)   [ ✗ Cancel ]
 ```
 
 ### Standalone & chain job cards
 
-- RUNNING jobs: Show "⬡ Connect" button + node `Select` widget (hidden if single node) + Cancel
-- Non-RUNNING jobs: Show only Cancel
+- RUNNING jobs: Show active "⬡ Connect" button + node `Select` widget (hidden if single node) + Cancel
+- Non-RUNNING jobs: Show disabled "⬡ Waiting for node…" button + Cancel
 
 ### Array job panels
 
 - Array summary panels show the Connect button if any tasks are RUNNING
 - The `Select` widget lists RUNNING tasks with their nodes: `"Task 5 → gn0621"`, `"Task 12 → gn0622"`
 - The selected value maps to a specific task's full job ID in SLURM format (`<array_job_id>_<task_id>`, e.g., `12345_5`) and its node
-- If no array tasks are RUNNING, no Connect button appears
+- If no array tasks are RUNNING, show disabled "⬡ Waiting for node…" button
 
 ## Connect Action — Exit & Execute
 
@@ -92,6 +92,10 @@ Replaces the sltop process entirely with `srun`. No zombie processes, no subproc
     color: #4499ff;
     text-style: bold underline;
 }
+.connect-link:disabled {
+    color: #555555;
+    text-style: none;
+}
 ```
 
 ### Node select (`.node-select`)
@@ -123,10 +127,10 @@ A `Spacer()` widget (or `Widget` with `width: 1fr`) is placed between the left-s
 
 | Case | Behavior |
 |------|----------|
-| RUNNING job with empty nodelist | Don't show Connect button (treat as non-RUNNING) |
+| RUNNING job with empty nodelist | Show disabled "Waiting for node…" button (treat as non-RUNNING) |
 | Job ends between click and execution | `srun` fails with "Invalid job id" error in terminal; user relaunches sltop |
 | Single-node job | Connect button shown, Select widget hidden |
 | Multi-node job | Connect button + Select with all nodes, defaulting to first (head) node |
-| Array summary — no RUNNING tasks | No Connect button |
+| Array summary — no RUNNING tasks | Show disabled "Waiting for node…" button |
 | Array summary — has RUNNING tasks | Connect + Select listing `"Task N → nodeX"` per RUNNING task |
 | Chain jobs | Per-card: RUNNING jobs get Connect, PENDING jobs don't |
