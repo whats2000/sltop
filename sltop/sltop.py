@@ -2117,7 +2117,7 @@ def main() -> None:
         print("Use 'exit' to disconnect and return to your shell.\n")
         os.execvp(
             "srun",
-            ["srun", "--overlap", "--jobid", job_id, "--nodelist", node, "--pty", "bash"],
+            ["srun", "--overlap", "--jobid", job_id, "--nodelist", node, "--cpu-bind=none", "--pty", "bash"],
         )
 
     if app._idle_exit:
