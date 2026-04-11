@@ -1693,9 +1693,70 @@ class SlurmMonitor(App):
             card.styles.border = ("round", color)
             container.mount(card)
             card.mount(Static(content))
-            card.mount(
+
+            # Button row for array panel
+            row = Horizontal(classes="button-row")
+            card.mount(row)
+
+            # Find RUNNING tasks with their nodes
+            running_tasks = [
+                j for j in arr if j["state"] == "RUNNING" and j.get("nodelist", "")
+            ]
+
+            if running_tasks:
+                # Build task→node options: "Task 5 → gn0621"
+                options: list[tuple[str, str]] = []
+                first_value = ""
+                for j in running_tasks:
+                    tid = j.get("array_task_id", "?")
+                    nodes = _expand_nodelist(j.get("nodelist", ""))
+                    for node in nodes:
+                        label = f"Task {tid} \u2192 {node}"
+                        value = f"{aid}_{tid}|{node}"
+                        options.append((label, value))
+                        if not first_value:
+                            first_value = value
+
+                if options:
+                    self._connect_id_map[safe] = (aid, "")
+                    row.mount(
+                        Button(
+                            "\u2b21 Connect",
+                            id=f"connect-{safe}",
+                            classes="connect-link",
+                        )
+                    )
+                    row.mount(
+                        Select(
+                            options,
+                            value=first_value,
+                            id=f"node-select-{safe}",
+                            classes="node-select",
+                        )
+                    )
+                else:
+                    row.mount(
+                        Button(
+                            "\u2b21 Waiting for node\u2026",
+                            id=f"connect-{safe}",
+                            classes="connect-link",
+                            disabled=True,
+                        )
+                    )
+            else:
+                row.mount(
+                    Button(
+                        "\u2b21 Waiting for node\u2026",
+                        id=f"connect-{safe}",
+                        classes="connect-link",
+                        disabled=True,
+                    )
+                )
+
+            row.mount(Widget(classes="spacer"))
+            row.mount(
                 Button(
-                    "✗ Cancel",
+                    "\u2717 Cancel",
                     id=f"cancel-{safe}",
                     classes="cancel-link",
                 )
