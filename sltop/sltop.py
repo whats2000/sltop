@@ -35,15 +35,17 @@ from rich.text import Text as RText
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Grid, Vertical, VerticalScroll
+from textual.containers import Grid, Horizontal, Vertical, VerticalScroll
 from textual.css.query import NoMatches
 from textual.screen import ModalScreen
+from textual.widget import Widget
 from textual.widgets import (
     Button,
     DataTable,
     Footer,
     Header,
     Label,
+    Select,
     Static,
     TabbedContent,
     TabPane,
