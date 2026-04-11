@@ -121,7 +121,7 @@ Replaces the sltop process entirely with `srun`. No zombie processes, no subproc
 
 ### Cancel alignment
 
-A `Spacer()` widget (or `Widget` with `width: 1fr`) is placed between the left-side widgets (Connect + Select) and the Cancel button, pushing Cancel to the right end. This applies to all job cards, including those without the Connect button.
+A `Widget(classes="spacer")` with `width: 1fr` CSS is placed between the left-side widgets (Connect + Select) and the Cancel button, pushing Cancel to the right end. This applies to all job cards, including those without the Connect button. (Note: Textual has no built-in `Spacer` widget.)
 
 ## Edge Cases
 
