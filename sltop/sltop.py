@@ -1831,9 +1831,20 @@ class SlurmMonitor(App):
     def _apply_queue_filter(self) -> tuple[int, int, int]:
         """Re-render queue table applying current filters and sort order."""
         tbl = self.query_one("#tbl-queue", DataTable)
-        # Save scroll offsets before clear() resets them
+        # Save scroll offsets and the selected job before clear() resets them.
+        # clear() forces the cursor back to (0,0); we restore it to the SAME
+        # job afterwards (by jobid row key) so a refresh doesn't yank the
+        # highlight back to the first row.
         saved_y = tbl.scroll_y
         saved_x = tbl.scroll_x
+        saved_row_key: Optional[str] = None
+        if tbl.row_count and tbl.is_valid_coordinate(tbl.cursor_coordinate):
+            try:
+                saved_row_key = tbl.coordinate_to_cell_key(
+                    tbl.cursor_coordinate
+                ).row_key.value
+            except Exception:
+                saved_row_key = None
         tbl.clear()
 
         # Filter — show all jobs (no My Jobs filter here; that's tab 4)
@@ -1908,11 +1919,21 @@ class SlurmMonitor(App):
                 row["nodes"],
                 row["gres"],
                 display_reason,
+                key=row["jobid"],  # stable identity so the cursor can be restored
             )
 
-        # Restore scroll position after layout pass — scroll_to overrides any
-        # cursor-driven scrolling that clear()/add_row() might trigger
+        # Restore the selected job and scroll position after the layout pass.
+        # Move the cursor first (scroll=False so it doesn't fight us), then
+        # scroll_to overrides any cursor-driven scrolling. If the previously
+        # selected job is gone (finished/filtered), leave the cursor at the top.
         def _restore() -> None:
+            if saved_row_key is not None:
+                try:
+                    tbl.move_cursor(
+                        row=tbl.get_row_index(saved_row_key), scroll=False
+                    )
+                except Exception:
+                    pass
             tbl.scroll_to(x=saved_x, y=saved_y, animate=False)
 
         self.call_after_refresh(_restore)
