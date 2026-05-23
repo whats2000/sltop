@@ -1829,23 +1829,17 @@ class SlurmMonitor(App):
         return self._apply_queue_filter()
 
     def _apply_queue_filter(self) -> tuple[int, int, int]:
-        """Re-render queue table applying current filters and sort order."""
+        """Re-render queue table applying current filters and sort order.
+
+        When the same jobs are present in the same order — the common case
+        between refreshes, where only volatile cells like Elapsed change —
+        cells are updated in place, leaving the scroll position and selection
+        completely untouched (no flicker). Only a structural change (jobs
+        added/removed/reordered, or a re-sort) falls back to a full
+        clear()+rebuild, which resets scroll; there we save and restore the
+        cursor and scroll offset so the view stays put.
+        """
         tbl = self.query_one("#tbl-queue", DataTable)
-        # Save scroll offsets and the selected job before clear() resets them.
-        # clear() forces the cursor back to (0,0); we restore it to the SAME
-        # job afterwards (by jobid row key) so a refresh doesn't yank the
-        # highlight back to the first row.
-        saved_y = tbl.scroll_y
-        saved_x = tbl.scroll_x
-        saved_row_key: Optional[str] = None
-        if tbl.row_count and tbl.is_valid_coordinate(tbl.cursor_coordinate):
-            try:
-                saved_row_key = tbl.coordinate_to_cell_key(
-                    tbl.cursor_coordinate
-                ).row_key.value
-            except Exception:
-                saved_row_key = None
-        tbl.clear()
 
         # Filter — show all jobs (no My Jobs filter here; that's tab 4)
         rows = list(self._queue_all_rows)
@@ -1864,8 +1858,11 @@ class SlurmMonitor(App):
 
             rows.sort(key=_sort_key, reverse=self._sort_rev)
 
+        # Build (jobid, [cell values]) for every visible row plus state counts.
+        # Cell order must match the column order declared in compose().
         running = pending = 0
         rules_map = {r["partition"]: r for r in self._rules_cache}
+        rendered: list[tuple[str, list[str]]] = []
         for row in rows:
             state = row["state"]
             if state == "RUNNING":
@@ -1908,35 +1905,66 @@ class SlurmMonitor(App):
             if row["user"] == self.current_user:
                 user_display = f"[bold #ffff00 on #333333]{user_display}[/]"
 
-            tbl.add_row(
-                row["jobid"],
-                f"[bold {_partition_color(row['partition'])}]{row['partition']}[/]",
-                user_display,
-                name,
-                display_state,
-                row["elapsed"],
-                row["timelimit"],
-                row["nodes"],
-                row["gres"],
-                display_reason,
-                key=row["jobid"],  # stable identity so the cursor can be restored
+            rendered.append(
+                (
+                    row["jobid"],
+                    [
+                        row["jobid"],
+                        f"[bold {_partition_color(row['partition'])}]{row['partition']}[/]",
+                        user_display,
+                        name,
+                        display_state,
+                        row["elapsed"],
+                        row["timelimit"],
+                        row["nodes"],
+                        row["gres"],
+                        display_reason,
+                    ],
+                )
             )
 
-        # Restore the selected job and scroll position after the layout pass.
-        # Move the cursor first (scroll=False so it doesn't fight us), then
-        # scroll_to overrides any cursor-driven scrolling. If the previously
-        # selected job is gone (finished/filtered), leave the cursor at the top.
-        def _restore() -> None:
-            if saved_row_key is not None:
-                try:
-                    tbl.move_cursor(
-                        row=tbl.get_row_index(saved_row_key), scroll=False
-                    )
-                except Exception:
-                    pass
-            tbl.scroll_to(x=saved_x, y=saved_y, animate=False)
+        col_keys = [key for _display, key in self._COL_KEYS]
+        new_keys = [jobid for jobid, _cells in rendered]
+        current_keys = [r.key.value for r in tbl.ordered_rows]
 
-        self.call_after_refresh(_restore)
+        if new_keys and new_keys == current_keys:
+            # Same jobs, same order: patch only the cells that changed. Scroll
+            # offset and row selection are left exactly as the user had them.
+            for jobid, cells in rendered:
+                for col_key, value in zip(col_keys, cells):
+                    if tbl.get_cell(jobid, col_key) != value:
+                        tbl.update_cell(jobid, col_key, value, update_width=True)
+        else:
+            # Structural change: rebuild. clear() resets scroll to (0,0) and the
+            # cursor to the top, so capture both first and restore the selected
+            # job (by key) and scroll offset after the layout pass.
+            saved_y = tbl.scroll_y
+            saved_x = tbl.scroll_x
+            saved_row_key: Optional[str] = None
+            if tbl.row_count and tbl.is_valid_coordinate(tbl.cursor_coordinate):
+                try:
+                    saved_row_key = tbl.coordinate_to_cell_key(
+                        tbl.cursor_coordinate
+                    ).row_key.value
+                except Exception:
+                    saved_row_key = None
+
+            tbl.clear()
+            for jobid, cells in rendered:
+                tbl.add_row(*cells, key=jobid)
+
+            def _restore() -> None:
+                if saved_row_key is not None:
+                    try:
+                        tbl.move_cursor(
+                            row=tbl.get_row_index(saved_row_key), scroll=False
+                        )
+                    except Exception:
+                        pass
+                tbl.scroll_to(x=saved_x, y=saved_y, animate=False)
+
+            self.call_after_refresh(_restore)
+
         return len(rows), running, pending
 
     # ── Events ─────────────────────────────────────────────────────────────

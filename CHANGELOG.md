@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Queue selection no longer resets on refresh** — the highlighted row in the Queue tab is now keyed by job ID and restored after each auto-refresh, so it stays on the job you selected (and follows that job across re-sorts and job churn) instead of jumping back to the first row
+- **Queue no longer jumps to the top on refresh** — when the same jobs are present, the Queue tab now updates changed cells (e.g. Elapsed) in place instead of clearing and rebuilding, so a scrolled-down view stays put with no flash to the first row; only a structural change (job added/removed/reordered or a re-sort) rebuilds the table
 
 ## [0.3.0] — 2026-04-12
 
