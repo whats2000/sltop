@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Queue selection no longer resets on refresh** — the highlighted row in the Queue tab is now keyed by job ID and restored after each auto-refresh, so it stays on the job you selected (and follows that job across re-sorts and job churn) instead of jumping back to the first row
+
 ## [0.3.0] — 2026-04-12
 
 ### Added
